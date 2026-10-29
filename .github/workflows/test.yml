@@ -1,0 +1,41 @@
+name: Test platform services
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  maven-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out integration repository
+        uses: actions/checkout@v4
+
+      - name: Check out Catalog Command Service
+        uses: actions/checkout@v4
+        with:
+          repository: visheshupadhyay/global-food-catalog-platform
+          ref: feature/release-1-0-integration
+          path: global-food-catalog-platform
+
+      - name: Check out Effective Menu Service
+        uses: actions/checkout@v4
+        with:
+          repository: visheshupadhyay/effective-menu-service
+          ref: feature/release-1-0-integration
+          path: effective-menu-service
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Test Catalog Command Service
+        run: mvn --batch-mode test
+        working-directory: global-food-catalog-platform
+
+      - name: Test Effective Menu Service
+        run: mvn --batch-mode test
+        working-directory: effective-menu-service
