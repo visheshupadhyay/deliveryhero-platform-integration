@@ -1,4 +1,7 @@
 .idea/
+k6-summary.json
+k6-run.log
+k6-million-summary.json
 *.iml
 .vscode/
 *.log

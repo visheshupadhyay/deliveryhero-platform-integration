@@ -55,6 +55,16 @@ services:
       timeout: 10s
       retries: 12
 
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
   catalog-service:
     build:
       context: ../global-food-catalog-platform
@@ -89,10 +99,14 @@ services:
       EFFECTIVE_MENU_DB_PASSWORD: effective_menu_password
       KAFKA_BOOTSTRAP_SERVERS: kafka:19092
       MENU_ITEM_CHANGED_TOPIC: catalog.menu-item.changed
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
     depends_on:
       effective-menu-postgres:
         condition: service_healthy
       kafka:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl --fail --silent http://localhost:8081/actuator/health > /dev/null || exit 1"]
