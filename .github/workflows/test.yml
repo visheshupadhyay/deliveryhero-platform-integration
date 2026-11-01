@@ -39,3 +39,14 @@ jobs:
       - name: Test Effective Menu Service
         run: mvn --batch-mode test
         working-directory: effective-menu-service
+
+      - name: Start integration stack
+        run: docker compose up -d --build
+
+      - name: Run reconciliation smoke test
+        shell: pwsh
+        run: ./scripts/reconciliation-smoke-test.ps1
+
+      - name: Stop integration stack
+        if: always()
+        run: docker compose down -v

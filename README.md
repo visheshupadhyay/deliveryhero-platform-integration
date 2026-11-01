@@ -39,6 +39,15 @@ Invoke-RestMethod http://localhost:8080/actuator/health
 Invoke-RestMethod http://localhost:8081/actuator/health
 ```
 
+Run the real reconciliation smoke test after the stack is healthy:
+
+```powershell
+.\scripts\reconciliation-smoke-test.ps1
+```
+
+The script creates unique test data, verifies `MISSING_SNAPSHOT`, creates a matching
+read-model snapshot, and verifies `MATCH` through the Catalog reconciliation API.
+
 Stop the stack:
 
 ```powershell
