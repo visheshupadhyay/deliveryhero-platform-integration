@@ -39,6 +39,38 @@ Invoke-RestMethod http://localhost:8080/actuator/health
 Invoke-RestMethod http://localhost:8081/actuator/health
 ```
 
+Detailed readiness checks:
+
+```powershell
+curl.exe -s http://localhost:8080/actuator/health/liveness
+curl.exe -s http://localhost:8080/actuator/health/readiness
+curl.exe -s http://localhost:8081/actuator/health/liveness
+curl.exe -s http://localhost:8081/actuator/health/readiness
+curl.exe -s http://localhost:8081/actuator/effective-menu
+```
+
+Catalog and Effective Menu readiness depends on PostgreSQL and Kafka. Liveness remains
+`UP` while the process is running. Redis is optional: stopping it must not fail the
+customer menu API because Effective Menu falls back to PostgreSQL.
+
+Failure-recovery checks:
+
+```powershell
+docker compose stop kafka
+docker compose start kafka
+docker compose stop redis
+docker compose start redis
+docker compose stop effective-menu-postgres
+docker compose start effective-menu-postgres
+docker compose ps
+```
+
+The service images must be rebuilt after Java or property changes:
+
+```powershell
+docker compose up -d --build catalog-service effective-menu-service
+```
+
 Run the real reconciliation smoke test after the stack is healthy:
 
 ```powershell
@@ -55,3 +87,5 @@ docker compose down
 ```
 
 The Compose stack is for local integration only. Testcontainers remains responsible for automated integration tests.
+
+Failure and recovery procedures are documented in [FAILURE_RECOVERY.md](FAILURE_RECOVERY.md).
