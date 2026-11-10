@@ -1,0 +1,8 @@
+services:
+  catalog-service:
+    build:
+      context: ./global-food-catalog-platform
+
+  effective-menu-service:
+    build:
+      context: ./effective-menu-service

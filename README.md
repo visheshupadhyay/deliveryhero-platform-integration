@@ -89,3 +89,7 @@ docker compose down
 The Compose stack is for local integration only. Testcontainers remains responsible for automated integration tests.
 
 Failure and recovery procedures are documented in [FAILURE_RECOVERY.md](FAILURE_RECOVERY.md).
+
+GitHub Actions uses `docker-compose.ci.yml` because the workflow checks out both service
+repositories inside the integration workspace. Local development continues to use the
+standard `docker-compose.yml` file and its sibling-directory build contexts.
