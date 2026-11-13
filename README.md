@@ -93,3 +93,20 @@ Failure and recovery procedures are documented in [FAILURE_RECOVERY.md](FAILURE_
 GitHub Actions uses `docker-compose.ci.yml` because the workflow checks out both service
 repositories inside the integration workspace. Local development continues to use the
 standard `docker-compose.yml` file and its sibling-directory build contexts.
+
+### Scheduled-availability verification
+
+After the stack is healthy, create or update a schedule through the Catalog API and
+inspect the newest outbox row. After it becomes `PUBLISHED`, read the same outlet from
+the Effective Menu API. The item remains visible while `availability` follows the
+outlet-local current time, and only that outlet's Redis key is evicted.
+
+```powershell
+docker compose exec -T catalog-postgres psql -U catalog_app -d catalog_command_db `
+  -c "SELECT id, status, aggregate_id, aggregate_version FROM outbox_event ORDER BY id DESC LIMIT 5;"
+curl.exe -s http://localhost:8081/api/v1/outlets/{outletId}/menu
+docker compose exec redis redis-cli keys "effective-menu:*"
+```
+
+The focused automated proof is
+`MenuItemChangedEventApiEndToEndIntegrationTest.scheduleChange_updatesAvailabilityAndCustomerApiResponse`.
