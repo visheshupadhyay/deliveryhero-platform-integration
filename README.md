@@ -110,3 +110,84 @@ docker compose exec redis redis-cli keys "effective-menu:*"
 
 The focused automated proof is
 `MenuItemChangedEventApiEndToEndIntegrationTest.scheduleChange_updatesAvailabilityAndCustomerApiResponse`.
+
+### Release 1.1 seasonal availability
+
+Seasonal date-range changes follow the same safe path as weekly schedules:
+Catalog PostgreSQL and its outbox commit together, Kafka delivers the versioned event,
+Effective Menu updates its PostgreSQL read model, evicts Redis, and evaluates the
+outlet-local seasonal range on customer reads. Ranges are start-inclusive and end-exclusive.
+
+### Release 1.1 bundle verification
+
+Bundle configuration changes travel through the same transactional path: Catalog
+PostgreSQL → outbox → Kafka → Effective Menu PostgreSQL → Redis eviction → customer
+API. The customer response exposes `bundleChildren` as ordered ID/name/quantity
+summaries. An unavailable required child leaves its parent bundle visible but sold out;
+a hidden, draft, or archived child removes the parent bundle from the customer menu.
+
+The Catalog endpoint is a complete replacement API. A newly created bundle starts
+as `DRAFT`; configure it first and activate it only after the composition request
+returns. This gives Effective Menu a complete tree before customers can see it.
+
+```powershell
+$chainId = 1
+$outletId = 1
+$childOneId = 10
+$childTwoId = 11
+
+$bundle = Invoke-RestMethod `
+  -Method Post `
+  -ContentType "application/json" `
+  -Uri "http://localhost:8080/api/v1/restaurant-chains/$chainId/outlets/$outletId/menu-items" `
+  -Body (@{
+    businessCode = "BURGER-MEAL-DEMO"
+    itemName = "Burger Meal"
+    itemPrice = 299
+    menuItemKind = "BUNDLE"
+  } | ConvertTo-Json)
+
+$bundleId = $bundle.id
+
+$body = @{
+  expectedVersion = $bundle.version
+  children = @(
+    @{ childMenuItemId = $childOneId; quantity = 1; displayOrder = 0 }
+    @{ childMenuItemId = $childTwoId; quantity = 1; displayOrder = 1 }
+  )
+} | ConvertTo-Json -Depth 4
+
+$composition = Invoke-RestMethod `
+  -Method Put `
+  -ContentType "application/json" `
+  -Uri "http://localhost:8080/api/v1/restaurant-chains/$chainId/menu-items/$bundleId/bundle-children" `
+  -Body $body
+
+$activeBundle = Invoke-RestMethod `
+  -Method Patch `
+  -ContentType "application/json" `
+  -Uri "http://localhost:8080/api/v1/restaurant-chains/$chainId/menu-items/$bundleId" `
+  -Body (@{
+    expectedVersion = $composition.version
+    status = "ACTIVE"
+    visibility = $true
+  } | ConvertTo-Json)
+```
+
+Use active child IDs from the same chain. The returned `version` is required by
+every later replacement. Then verify the path:
+
+```powershell
+Start-Sleep -Seconds 5
+docker compose exec -T catalog-postgres psql -U catalog_app -d catalog_command_db `
+  -c "SELECT id, status, event_type, aggregate_id FROM outbox_event ORDER BY id DESC LIMIT 5;"
+docker compose exec -T effective-menu-postgres psql -U effective_menu_app -d effective_menu_db `
+  -c "SELECT outlet_id, snapshot_version FROM effective_menu_snapshot ORDER BY updated_at DESC LIMIT 5;"
+curl.exe -s "http://localhost:8081/api/v1/outlets/$outletId/menu"
+```
+
+Before making a later replacement, fetch the current composition and version:
+
+```powershell
+curl.exe -s "http://localhost:8080/api/v1/restaurant-chains/$chainId/menu-items/$bundleId/bundle-children"
+```
